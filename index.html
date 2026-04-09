@@ -1231,6 +1231,46 @@ function clearCart() {
   document.querySelectorAll(".btn-add").forEach(b => b.textContent = "+");
 }
 
+// ─── ORDER NOTIFICATION SOUND ────────────────────────────────────────────────
+
+function playOrderSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Notes: a cheerful "ding-ding-dong" chime
+    const notes = [
+      { freq: 880,  start: 0.00, dur: 0.18 },  // A5
+      { freq: 1174, start: 0.18, dur: 0.18 },  // D6
+      { freq: 1318, start: 0.36, dur: 0.28 },  // E6
+      { freq: 1046, start: 0.64, dur: 0.40 },  // C6 (long close)
+    ];
+
+    notes.forEach(({ freq, start, dur }) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+
+      // Envelope: quick attack, smooth release
+      gain.gain.setValueAtTime(0, ctx.currentTime + start);
+      gain.gain.linearRampToValueAtTime(0.55, ctx.currentTime + start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + dur + 0.05);
+    });
+
+    // Auto-close context after sound finishes
+    setTimeout(() => ctx.close(), 1500);
+  } catch (e) {
+    console.warn("Audio not available:", e);
+  }
+}
+
 // ─── ORDER PLACEMENT ─────────────────────────────────────────────────────────
 
 function generateOrderId() {
@@ -1250,6 +1290,9 @@ function placeOrder() {
   const order = { id: orderId, items, total, status: "Preparing", timestamp };
   orders.unshift(order);
   localStorage.setItem("chailije_orders", JSON.stringify(orders));
+
+  // Play notification sound for admin
+  playOrderSound();
 
   // Show red dot on dashboard button
   document.getElementById("order-dot").style.display = "inline-block";
